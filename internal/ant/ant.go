@@ -63,7 +63,7 @@ func (a *Ant) PlaceMarker() *Marker {
 	m := Marker{
 		Pos: &pos,
 		Dir: &dir,
-		TTL: config.ANT_CONFIG.FORAGING_TTL,
+		TTL: config.ANT_CONFIG.MARKER_TTL,
 	}
 
 	return &m

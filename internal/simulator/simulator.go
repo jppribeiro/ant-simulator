@@ -2,7 +2,6 @@ package simulator
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/jppribeiro/ant-simulator/internal/ant"
@@ -10,18 +9,24 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+var home *sdl.Rect
+var food *sdl.Rect
+var ants = make([]*ant.Ant, config.WORLD_CONFIG.ANT_NUM)
+var foragingMarkers = []*ant.Marker{}
+var retrievingMarkers = []*ant.Marker{}
+
+type rgb struct {
+	r int32
+	g int32
+	b int32
+	a int32
+}
+
 func Run(wTitle string, wWidth int32, wHeight int32) int {
 	var window *sdl.Window
 	var renderer *sdl.Renderer
 
-	ants := make([]*ant.Ant, 50)
-
-	foragingMarkers := []*ant.Marker{}
-	retrievingMarkers := []*ant.Marker{}
-
-	for i, _ := range ants {
-		ants[i] = ant.NewAnt(sdl.Point{200, 200})
-	}
+	prepareScene()
 
 	window, err := sdl.CreateWindow(wTitle, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
 		wWidth, wHeight, sdl.WINDOW_SHOWN)
@@ -54,8 +59,10 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 		renderer.Clear()
 
 		renderer.SetDrawColor(80, 255, 60, 255)
+		renderer.DrawRect(home)
 
-		drawCircle(sdl.Point{200, 200}, 15, renderer)
+		renderer.SetDrawColor(230, 255, 60, 255)
+		renderer.DrawRect(food)
 
 		renderer.SetDrawColor(255, 255, 255, 255)
 
@@ -72,6 +79,8 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 			}
 
 			a.Move()
+			evalState(a)
+
 			renderer.DrawPoint(int32(a.Pos.X)-1, int32(a.Pos.Y))
 			renderer.DrawPoint(int32(a.Pos.X)+1, int32(a.Pos.Y))
 			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y)-1)
@@ -79,23 +88,8 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y))
 		}
 
-		delForaging := []int{}
-
-		for i, f := range foragingMarkers {
-			a := 1 - (config.ANT_CONFIG.FORAGING_TTL-f.TTL)/config.ANT_CONFIG.FORAGING_TTL
-
-			renderer.SetDrawColor(uint8(50*a), uint8(80*a), uint8(255*a), 255)
-			f.TTL--
-			renderer.DrawPoint(int32(f.Pos.X), int32(f.Pos.Y))
-			if f.TTL <= 0 {
-				delForaging = append(delForaging, i)
-			}
-		}
-
-		for _, ref := range delForaging {
-			foragingMarkers[len(foragingMarkers)-1], foragingMarkers[ref] = foragingMarkers[ref], foragingMarkers[len(foragingMarkers)-1]
-			foragingMarkers = foragingMarkers[:len(foragingMarkers)-1]
-		}
+		resolveMarkers(&foragingMarkers, renderer, rgb{50, 80, 255, 255})
+		resolveMarkers(&retrievingMarkers, renderer, rgb{230, 255, 80, 255})
 
 		renderer.Present()
 		sdl.Delay(33)
@@ -105,12 +99,66 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 	return 0
 }
 
-func drawCircle(pos sdl.Point, radius int32, w *sdl.Renderer) {
-	for i := -radius; i < radius; i++ {
-		for j := -radius; j < radius; j++ {
-			if math.Pow(float64(j), 2)+math.Pow(float64(i), 2) <= float64(radius*radius) {
-				w.DrawPoint(pos.X-j, pos.Y-i)
-			}
+func resolveMarkers(markers *[]*ant.Marker, renderer *sdl.Renderer, color rgb) {
+	i := 0
+
+	for _, f := range *markers {
+		a := 1 - (config.ANT_CONFIG.MARKER_TTL-f.TTL)/config.ANT_CONFIG.MARKER_TTL
+		renderer.SetDrawColor(uint8(float32(color.r)*a), uint8(float32(color.g)*a), uint8(float32(color.b)*a), uint8(color.a))
+		f.TTL--
+		renderer.DrawPoint(int32(f.Pos.X), int32(f.Pos.Y))
+		if f.TTL > 0 {
+			(*markers)[i] = f
+			i++
 		}
 	}
+
+	for j := i; j < len(*markers); j++ {
+		(*markers)[j] = nil
+	}
+
+	(*markers) = (*markers)[:i]
+}
+
+func prepareScene() {
+	for i := range ants {
+		ants[i] = ant.NewAnt(sdl.Point{
+			X: int32(config.WORLD_CONFIG.HOME_POS_X + config.WORLD_CONFIG.HOME_SIZE/2),
+			Y: int32(config.WORLD_CONFIG.HOME_POS_Y + config.WORLD_CONFIG.HOME_SIZE/2),
+		})
+	}
+
+	home = &sdl.Rect{
+		X: int32(config.WORLD_CONFIG.HOME_POS_X),
+		Y: int32(config.WORLD_CONFIG.HOME_POS_X),
+		W: int32(config.WORLD_CONFIG.HOME_SIZE),
+		H: int32(config.WORLD_CONFIG.HOME_SIZE),
+	}
+
+	food = &sdl.Rect{
+		X: int32(config.WORLD_CONFIG.FOOD_POS_X),
+		Y: int32(config.WORLD_CONFIG.FOOD_POS_Y),
+		W: int32(config.WORLD_CONFIG.FOOD_SIZE),
+		H: int32(config.WORLD_CONFIG.FOOD_SIZE),
+	}
+}
+
+func evalState(a *ant.Ant) {
+	switch a.CurrentState {
+	case ant.Foraging:
+		if foundFood(a) {
+			a.SetState(ant.Retrieving)
+		}
+	}
+}
+
+func foundFood(a *ant.Ant) bool {
+	if a.Pos.X > config.WORLD_CONFIG.FOOD_POS_X &&
+		a.Pos.X < config.WORLD_CONFIG.FOOD_POS_X+config.WORLD_CONFIG.FOOD_SIZE &&
+		a.Pos.Y > config.WORLD_CONFIG.FOOD_POS_Y &&
+		a.Pos.Y < config.WORLD_CONFIG.FOOD_POS_Y+config.WORLD_CONFIG.FOOD_SIZE {
+		return true
+	}
+
+	return false
 }
