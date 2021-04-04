@@ -25,10 +25,13 @@ func NewAnt(o sdl.Point) *Ant {
 
 	d := vector.New(float32(math.Sin(dR)), float32(math.Cos(dR)))
 
+	c := rand.Int31n(5) + 3
+
 	ant := Ant{
 		Pos:          &pos,
 		Vel:          &v,
 		Dir:          &d,
+		Clock:        c,
 		CurrentState: Foraging,
 	}
 
@@ -46,6 +49,7 @@ type Ant struct {
 	Pos          *vector.Vector
 	Vel          *int32         // Px per frame
 	Dir          *vector.Vector // Random unit vector
+	Clock        int32
 	CurrentState state
 }
 
@@ -80,6 +84,20 @@ func (a *Ant) Move() {
 
 	a.Pos.X += a.Dir.X * float32(*a.Vel)
 	a.Pos.Y += a.Dir.Y * float32(*a.Vel)
+}
+
+func (a *Ant) ResolveMarker(counter int, foragingMarkers *[]*Marker, retrievingMarkers *[]*Marker) {
+	if counter%int(a.Clock) != 0 {
+		return
+	}
+
+	switch a.CurrentState {
+	case Foraging:
+		*foragingMarkers = append(*foragingMarkers, a.PlaceMarker())
+	case Retrieving:
+		*retrievingMarkers = append(*retrievingMarkers, a.PlaceMarker())
+	}
+
 }
 
 func (a *Ant) SetState(s state) {

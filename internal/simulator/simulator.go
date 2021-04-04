@@ -69,17 +69,11 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 		renderer.SetDrawColor(255, 255, 255, 255)
 
 		for _, a := range ants {
-			if counter%3 == 0 {
-				switch a.CurrentState {
-				case ant.Foraging:
-					foragingMarkers = append(foragingMarkers, a.PlaceMarker())
-				case ant.Retrieving:
-					retrievingMarkers = append(retrievingMarkers, a.PlaceMarker())
-				}
-			}
+			a.ResolveMarker(counter, &foragingMarkers, &retrievingMarkers)
 
 			a.Move()
-			evalState(a)
+
+			evalWorldState(a)
 
 			renderer.DrawPoint(int32(a.Pos.X)-1, int32(a.Pos.Y))
 			renderer.DrawPoint(int32(a.Pos.X)+1, int32(a.Pos.Y))
@@ -143,11 +137,15 @@ func prepareScene() {
 	}
 }
 
-func evalState(a *ant.Ant) {
+func evalWorldState(a *ant.Ant) {
 	switch a.CurrentState {
 	case ant.Foraging:
 		if foundFood(a) {
 			a.SetState(ant.Retrieving)
+		}
+	case ant.Retrieving:
+		if foundHome(a) {
+			a.SetState(ant.Foraging)
 		}
 	}
 }
@@ -157,6 +155,17 @@ func foundFood(a *ant.Ant) bool {
 		a.Pos.X < config.WORLD_CONFIG.FOOD_POS_X+config.WORLD_CONFIG.FOOD_SIZE &&
 		a.Pos.Y > config.WORLD_CONFIG.FOOD_POS_Y &&
 		a.Pos.Y < config.WORLD_CONFIG.FOOD_POS_Y+config.WORLD_CONFIG.FOOD_SIZE {
+		return true
+	}
+
+	return false
+}
+
+func foundHome(a *ant.Ant) bool {
+	if a.Pos.X > config.WORLD_CONFIG.HOME_POS_X &&
+		a.Pos.X < config.WORLD_CONFIG.HOME_POS_X+config.WORLD_CONFIG.HOME_SIZE &&
+		a.Pos.Y > config.WORLD_CONFIG.HOME_POS_Y &&
+		a.Pos.Y < config.WORLD_CONFIG.HOME_POS_Y+config.WORLD_CONFIG.HOME_SIZE {
 		return true
 	}
 
