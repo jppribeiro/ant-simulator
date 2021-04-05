@@ -69,9 +69,10 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 		renderer.SetDrawColor(255, 255, 255, 255)
 
 		for _, a := range ants {
-			a.ResolveMarker(counter, &foragingMarkers, &retrievingMarkers)
 
-			a.Move()
+			a.Move(&foragingMarkers, &retrievingMarkers)
+
+			a.ResolveMarker(counter, &foragingMarkers, &retrievingMarkers)
 
 			evalWorldState(a)
 

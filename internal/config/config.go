@@ -1,5 +1,7 @@
 package config
 
+import "math"
+
 type windowConfig struct {
 	X int32
 	Y int32
@@ -11,9 +13,11 @@ type antConfig struct {
 	MIN_V      int32
 	MAX_V      int32
 	MARKER_TTL float32
+	VIEW_D     float32
+	VIEW_ANGLE float64 // For each section. Multiply by 2 for total FOV
 }
 
-var ANT_CONFIG = antConfig{2, 4, 300}
+var ANT_CONFIG = antConfig{2, 4, 500, 20, math.Pi / 3}
 
 type worldConfig struct {
 	HOME_POS_X float32
