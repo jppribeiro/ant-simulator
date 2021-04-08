@@ -3,22 +3,22 @@ package vector
 import "math"
 
 type Vector struct {
-	X float32
-	Y float32
+	X float64
+	Y float64
 }
 
-func New(x float32, y float32) Vector {
+func New(x float64, y float64) Vector {
 	v := Vector{x, y}
 
 	return v
 }
 
-func (v *Vector) Scale(m float32) {
+func (v *Vector) Scale(m float64) {
 	v.X *= m
 	v.Y *= m
 }
 
-func Scale(v Vector, m float32) Vector {
+func Scale(v Vector, m float64) Vector {
 	return Vector{v.X * m, v.Y * m}
 }
 
@@ -47,19 +47,24 @@ func (v *Vector) Add(v1 Vector) {
 	v.Y += v1.Y
 }
 
-func (v *Vector) Magnitude() float32 {
-	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+func (v *Vector) Magnitude() float64 {
+	return float64(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+}
+
+func (v *Vector) Rotate(m Matrix2D) {
+	v.X = m.i*v.X + m.j*v.Y
+	v.Y = m.k*v.X + m.l*v.Y
 }
 
 func Subtract(v1 Vector, v2 Vector) Vector {
 	return Vector{v1.X - v2.X, v1.Y - v2.Y}
 }
 
-func Magnitude(v Vector) float32 {
-	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+func Magnitude(v Vector) float64 {
+	return float64(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
 }
 
-func Dot(v1 Vector, v2 Vector) float32 {
+func Dot(v1 Vector, v2 Vector) float64 {
 	return v1.X*v2.X + v1.Y*v2.Y
 }
 
@@ -71,6 +76,6 @@ func Unit(v Vector) Vector {
 
 // UnitAngle determines the angle between two unit vectors
 // It saves computation time because we avoid having to calculate vector magnitude
-func UnitAngle(v1 Vector, v2 Vector) float32 {
-	return float32(math.Acos(float64(Dot(v1, v2))))
+func UnitAngle(v1 Vector, v2 Vector) float64 {
+	return float64(math.Acos(float64(Dot(v1, v2))))
 }

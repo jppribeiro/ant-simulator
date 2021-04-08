@@ -6,14 +6,19 @@ import (
 
 	"github.com/jppribeiro/ant-simulator/internal/ant"
 	"github.com/jppribeiro/ant-simulator/internal/config"
+	"github.com/jppribeiro/ant-simulator/internal/marker"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
 var home *sdl.Rect
 var food *sdl.Rect
+
+var homeStore int32
+var foodStore int32
+
 var ants = make([]*ant.Ant, config.WORLD_CONFIG.ANT_NUM)
-var foragingMarkers = []*ant.Marker{}
-var retrievingMarkers = []*ant.Marker{}
+var foragingMarkers = []*marker.Marker{}
+var retrievingMarkers = []*marker.Marker{}
 
 type rgb struct {
 	r int32
@@ -58,19 +63,16 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
-		renderer.SetDrawColor(80, 255, 60, 255)
+		renderer.SetDrawColor(80, 155, 60, 255)
 		renderer.DrawRect(home)
 
-		renderer.SetDrawColor(230, 255, 60, 255)
+		renderer.SetDrawColor(255, 155, 60, 255)
 		renderer.DrawRect(food)
 
-		renderer.SetDrawColor(255, 255, 255, 255)
-
-		renderer.SetDrawColor(255, 255, 255, 255)
+		renderer.SetDrawColor(180, 155, 80, 255)
 
 		for _, a := range ants {
-
-			a.Move(&foragingMarkers, &retrievingMarkers)
+			a.Move(counter, &foragingMarkers, &retrievingMarkers)
 
 			a.ResolveMarker(counter, &foragingMarkers, &retrievingMarkers)
 
@@ -83,8 +85,8 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y))
 		}
 
-		resolveMarkers(&foragingMarkers, renderer, rgb{50, 80, 255, 255})
-		resolveMarkers(&retrievingMarkers, renderer, rgb{230, 255, 80, 255})
+		resolveMarkers(&foragingMarkers, renderer, rgb{50, 230, 255, 255})
+		resolveMarkers(&retrievingMarkers, renderer, rgb{255, 125, 80, 255})
 
 		renderer.Present()
 		sdl.Delay(33)
@@ -94,16 +96,20 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 	return 0
 }
 
-func resolveMarkers(markers *[]*ant.Marker, renderer *sdl.Renderer, color rgb) {
+func resolveMarkers(markers *[]*marker.Marker, renderer *sdl.Renderer, color rgb) {
 	i := 0
 
-	for _, f := range *markers {
-		a := 1 - (config.ANT_CONFIG.MARKER_TTL-f.TTL)/config.ANT_CONFIG.MARKER_TTL
-		renderer.SetDrawColor(uint8(float32(color.r)*a), uint8(float32(color.g)*a), uint8(float32(color.b)*a), uint8(color.a))
-		f.TTL--
-		renderer.DrawPoint(int32(f.Pos.X), int32(f.Pos.Y))
-		if f.TTL > 0 {
-			(*markers)[i] = f
+	for _, m := range *markers {
+		a := 1 - (config.ANT_CONFIG.MARKER_TTL*config.WORLD_CONFIG.ANT_SOURCE_DECAY-m.TTL*m.DecayConst)/(config.ANT_CONFIG.MARKER_TTL*config.WORLD_CONFIG.ANT_SOURCE_DECAY)
+
+		renderer.SetDrawColor(uint8(float64(color.r)*a), uint8(float64(color.g)*a), uint8(float64(color.b)*a), uint8(color.a))
+
+		m.Decay()
+
+		renderer.DrawPoint(int32(m.Pos.X), int32(m.Pos.Y))
+
+		if m.TTL > 0 {
+			(*markers)[i] = m
 			i++
 		}
 	}
@@ -130,24 +136,27 @@ func prepareScene() {
 		H: int32(config.WORLD_CONFIG.HOME_SIZE),
 	}
 
+	homeStore = 0
+
 	food = &sdl.Rect{
 		X: int32(config.WORLD_CONFIG.FOOD_POS_X),
 		Y: int32(config.WORLD_CONFIG.FOOD_POS_Y),
 		W: int32(config.WORLD_CONFIG.FOOD_SIZE),
 		H: int32(config.WORLD_CONFIG.FOOD_SIZE),
 	}
+
+	foodStore = 100
 }
 
 func evalWorldState(a *ant.Ant) {
-	switch a.CurrentState {
-	case ant.Foraging:
-		if foundFood(a) {
-			a.SetState(ant.Retrieving)
-		}
-	case ant.Retrieving:
-		if foundHome(a) {
-			a.SetState(ant.Foraging)
-		}
+	if foundHome(a) && a.CurrentState == ant.Retrieving {
+		homeStore++
+		a.SetState(ant.Foraging)
+	}
+
+	if foundFood(a) && a.CurrentState == ant.Foraging {
+		foodStore--
+		a.SetState(ant.Retrieving)
 	}
 }
 
@@ -155,7 +164,11 @@ func foundFood(a *ant.Ant) bool {
 	if a.Pos.X > config.WORLD_CONFIG.FOOD_POS_X &&
 		a.Pos.X < config.WORLD_CONFIG.FOOD_POS_X+config.WORLD_CONFIG.FOOD_SIZE &&
 		a.Pos.Y > config.WORLD_CONFIG.FOOD_POS_Y &&
-		a.Pos.Y < config.WORLD_CONFIG.FOOD_POS_Y+config.WORLD_CONFIG.FOOD_SIZE {
+		a.Pos.Y < config.WORLD_CONFIG.FOOD_POS_Y+config.WORLD_CONFIG.FOOD_SIZE &&
+		foodStore > 0 {
+
+		a.RefreshMarkerSource()
+
 		return true
 	}
 
@@ -167,6 +180,9 @@ func foundHome(a *ant.Ant) bool {
 		a.Pos.X < config.WORLD_CONFIG.HOME_POS_X+config.WORLD_CONFIG.HOME_SIZE &&
 		a.Pos.Y > config.WORLD_CONFIG.HOME_POS_Y &&
 		a.Pos.Y < config.WORLD_CONFIG.HOME_POS_Y+config.WORLD_CONFIG.HOME_SIZE {
+
+		a.RefreshMarkerSource()
+
 		return true
 	}
 

@@ -6,37 +6,10 @@ import (
 	"time"
 
 	"github.com/jppribeiro/ant-simulator/internal/config"
+	"github.com/jppribeiro/ant-simulator/internal/marker"
 	"github.com/jppribeiro/ant-simulator/internal/vector"
 	"github.com/veandco/go-sdl2/sdl"
 )
-
-func NewAnt(o sdl.Point) *Ant {
-	pos := vector.Vector{
-		X: float32(o.X),
-		Y: float32(o.Y),
-	}
-
-	rand.Seed(time.Now().UnixNano())
-
-	v := rand.Int31n(config.ANT_CONFIG.MAX_V-config.ANT_CONFIG.MIN_V) + config.ANT_CONFIG.MIN_V
-
-	rand.Seed(time.Now().UnixNano())
-	dR := rand.Float64() * 2 * math.Pi
-
-	d := vector.New(float32(math.Sin(dR)), float32(math.Cos(dR)))
-
-	c := rand.Int31n(10) + 7
-
-	ant := Ant{
-		Pos:          &pos,
-		Vel:          &v,
-		Dir:          &d,
-		Clock:        c,
-		CurrentState: Foraging,
-	}
-
-	return &ant
-}
 
 type state string
 
@@ -51,86 +24,130 @@ type Ant struct {
 	Dir          *vector.Vector // Random unit vector
 	Clock        int32
 	CurrentState state
+	SourceDecay  float64
 }
 
-type Marker struct {
-	Pos *vector.Vector
-	Dir *vector.Vector
-	TTL float32
+func NewAnt(o sdl.Point) *Ant {
+	pos := vector.Vector{
+		X: float64(o.X),
+		Y: float64(o.Y),
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	v := rand.Int31n(config.ANT_CONFIG.MAX_V-config.ANT_CONFIG.MIN_V) + config.ANT_CONFIG.MIN_V
+
+	rand.Seed(time.Now().UnixNano())
+	dR := rand.Float64() * 2 * math.Pi
+
+	d := vector.New(math.Sin(dR), math.Cos(dR))
+
+	c := rand.Int31n(6) + 4
+
+	ant := Ant{
+		Pos:          &pos,
+		Vel:          &v,
+		Dir:          &d,
+		Clock:        c,
+		CurrentState: Foraging,
+		SourceDecay:  config.WORLD_CONFIG.ANT_SOURCE_DECAY,
+	}
+
+	return &ant
 }
 
-func (a *Ant) PlaceMarker() *Marker {
+func (a *Ant) wobble() {
+	rand.Seed(time.Now().UnixNano())
+	beta := (rand.Float64() - 0.5) / 1.5
+
+	/*
+		beta := (math.Sin(20*float64(counter)/50) +
+			math.Sin(2*float64(counter)/80) +
+			math.Sin(2*float64(counter)/4)) / 48
+	*/
+	rMatrix := vector.NewRotationMatrix2D(beta)
+
+	a.Dir.Rotate(rMatrix)
+}
+
+func (a *Ant) placeMarker() *marker.Marker {
 	pos := *a.Pos
-	dir := *a.Dir
-	dir.Mirror()
 
-	m := Marker{
-		Pos: &pos,
-		Dir: &dir,
-		TTL: config.ANT_CONFIG.MARKER_TTL,
-	}
-
-	return &m
+	return marker.NewMarker(pos, a.SourceDecay)
 }
 
-func (a *Ant) Move(foragingMarkers *[]*Marker, retrievingMarkers *[]*Marker) {
-	switch a.CurrentState {
-	case Foraging:
-		a.adjustDirection(retrievingMarkers)
-	case Retrieving:
-		a.adjustDirection(foragingMarkers)
+func (a *Ant) adjustDirection(counter int, markers *[]*marker.Marker) {
+	//target := vector.Scale(*a.Dir, config.ANT_CONFIG.VIEW_D)
+	//var c float32 = 0
+
+	intensity := 0.0
+	target := *a.Dir
+
+	for _, m := range *markers {
+		mVector := vector.Subtract(*m.Pos, *a.Pos)
+
+		if vector.Magnitude(mVector) > config.ANT_CONFIG.VIEW_D {
+			continue
+		}
+
+		if vector.UnitAngle(vector.Unit(mVector), *a.Dir) >= config.ANT_CONFIG.VIEW_ANGLE {
+			continue
+		}
+
+		intensity += m.Intensity
+		target.Add(vector.Scale(mVector, m.Intensity))
 	}
 
-	if a.Pos.X+a.Dir.X*float32(*a.Vel) >= float32(config.WINDOW.X) || a.Pos.X+a.Dir.X*float32(*a.Vel) <= 0 {
-		a.Dir.MirrorX()
-	}
+	target.Unit()
 
-	if a.Pos.Y+a.Dir.Y*float32(*a.Vel) >= float32(config.WINDOW.Y) || a.Pos.Y+a.Dir.Y*float32(*a.Vel) <= 0 {
-		a.Dir.MirrorY()
-	}
-
-	a.Pos.X += a.Dir.X * float32(*a.Vel)
-	a.Pos.Y += a.Dir.Y * float32(*a.Vel)
+	*a.Dir = target
+	a.wobble()
 }
 
-func (a *Ant) ResolveMarker(counter int, foragingMarkers *[]*Marker, retrievingMarkers *[]*Marker) {
-	if counter%int(a.Clock) != 0 {
+/***********************
+* 	PUBLIC FUNCTIONS   *
+************************/
+
+func (a *Ant) SetState(s state) {
+	a.Dir.Mirror()
+	a.CurrentState = s
+}
+
+func (a *Ant) RefreshMarkerSource() {
+	a.SourceDecay = config.WORLD_CONFIG.ANT_SOURCE_DECAY
+}
+
+func (a *Ant) ResolveMarker(counter int, foragingMarkers *[]*marker.Marker, retrievingMarkers *[]*marker.Marker) {
+	if counter%int(a.Clock) != 0 || a.SourceDecay <= 0 {
 		return
 	}
 
 	switch a.CurrentState {
 	case Foraging:
-		*foragingMarkers = append(*foragingMarkers, a.PlaceMarker())
+		*foragingMarkers = append(*foragingMarkers, a.placeMarker())
 	case Retrieving:
-		*retrievingMarkers = append(*retrievingMarkers, a.PlaceMarker())
+		*retrievingMarkers = append(*retrievingMarkers, a.placeMarker())
 	}
-
 }
 
-func (a *Ant) SetState(s state) {
-	a.CurrentState = s
-}
-
-func (a *Ant) adjustDirection(markers *[]*Marker) {
-	target := vector.Scale(*a.Dir, config.ANT_CONFIG.VIEW_D)
-	var c float32 = 1000
-
-	for _, m := range *markers {
-		mVector := vector.Subtract(*m.Pos, *a.Pos)
-
-		if vector.Magnitude(mVector) > float32(config.ANT_CONFIG.VIEW_D) {
-			continue
-		}
-
-		if vector.UnitAngle(vector.Unit(mVector), *a.Dir) >= float32(config.ANT_CONFIG.VIEW_ANGLE) {
-			continue
-		}
-
-		if m.TTL < c {
-			target = mVector
-		}
+func (a *Ant) Move(counter int, foragingMarkers *[]*marker.Marker, retrievingMarkers *[]*marker.Marker) {
+	switch a.CurrentState {
+	case Foraging:
+		a.adjustDirection(counter, retrievingMarkers)
+	case Retrieving:
+		a.adjustDirection(counter, foragingMarkers)
 	}
 
-	a.Dir.Add(target)
-	a.Dir.Unit()
+	if a.Pos.X+a.Dir.X*float64(*a.Vel) >= float64(config.WINDOW.X) || a.Pos.X+a.Dir.X*float64(*a.Vel) <= 0 {
+		a.Dir.MirrorX()
+	}
+
+	if a.Pos.Y+a.Dir.Y*float64(*a.Vel) >= float64(config.WINDOW.Y) || a.Pos.Y+a.Dir.Y*float64(*a.Vel) <= 0 {
+		a.Dir.MirrorY()
+	}
+
+	a.Pos.X += a.Dir.X * float64(*a.Vel)
+	a.Pos.Y += a.Dir.Y * float64(*a.Vel)
+
+	a.SourceDecay -= 3
 }
