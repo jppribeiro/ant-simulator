@@ -26,6 +26,6 @@ func NewMarker(pos vector.Vector, decay float64) *Marker {
 }
 
 func (m *Marker) Decay() {
-	m.TTL *= (1 - 1/m.DecayConst)
+	m.TTL = m.TTL - config.WORLD_CONFIG.MARKER_TTL/m.DecayConst
 	m.Intensity = m.TTL * m.DecayConst
 }

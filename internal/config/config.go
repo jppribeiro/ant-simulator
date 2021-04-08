@@ -17,7 +17,7 @@ type antConfig struct {
 	VIEW_ANGLE float64 // For each section. Multiply by 2 for total FOV
 }
 
-var ANT_CONFIG = antConfig{2, 4, 500, 20, math.Pi / 3}
+var ANT_CONFIG = antConfig{2, 4, 500, 20, math.Pi / 2}
 
 type worldConfig struct {
 	HOME_POS_X float64
@@ -43,8 +43,8 @@ var WORLD_CONFIG = worldConfig{
 	FOOD_POS_Y: 400,
 	FOOD_SIZE:  60,
 
-	ANT_NUM:          60,
-	ANT_SOURCE_DECAY: 300,
+	ANT_NUM:          150,
+	ANT_SOURCE_DECAY: 600,
 
-	MARKER_TTL: 200,
+	MARKER_TTL: 300,
 }
