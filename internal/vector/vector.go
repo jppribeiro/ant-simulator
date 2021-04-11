@@ -48,7 +48,7 @@ func (v *Vector) Add(v1 Vector) {
 }
 
 func (v *Vector) Magnitude() float64 {
-	return float64(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+	return math.Sqrt(float64(v.X*v.X + v.Y*v.Y))
 }
 
 func (v *Vector) Rotate(m Matrix2D) {
@@ -61,7 +61,7 @@ func Subtract(v1 Vector, v2 Vector) Vector {
 }
 
 func Magnitude(v Vector) float64 {
-	return float64(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+	return math.Sqrt(float64(v.X*v.X + v.Y*v.Y))
 }
 
 func Dot(v1 Vector, v2 Vector) float64 {
@@ -77,5 +77,5 @@ func Unit(v Vector) Vector {
 // UnitAngle determines the angle between two unit vectors
 // It saves computation time because we avoid having to calculate vector magnitude
 func UnitAngle(v1 Vector, v2 Vector) float64 {
-	return float64(math.Acos(float64(Dot(v1, v2))))
+	return math.Acos(float64(Dot(v1, v2)))
 }
