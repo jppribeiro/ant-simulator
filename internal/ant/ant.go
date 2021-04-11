@@ -58,7 +58,7 @@ func NewAnt(o sdl.Point) *Ant {
 
 func (a *Ant) wobble() {
 	rand.Seed(time.Now().UnixNano())
-	beta := (rand.Float64() - 0.5) / 1.5
+	beta := (rand.Float64() - 0.5) / 1.1
 
 	/*
 		beta := (math.Sin(20*float64(counter)/50) +
@@ -76,14 +76,14 @@ func (a *Ant) placeMarker() *marker.Marker {
 	return marker.NewMarker(pos, a.SourceDecay)
 }
 
-func (a *Ant) adjustDirection(counter int, markers *[]*marker.Marker) {
+func (a *Ant) adjustDirection(counter int, markers []*marker.Marker) {
 	//target := vector.Scale(*a.Dir, config.ANT_CONFIG.VIEW_D)
 	//var c float32 = 0
 
 	intensity := 0.0
 	target := *a.Dir
 
-	for _, m := range *markers {
+	for _, m := range markers {
 		mVector := vector.Subtract(*m.Pos, *a.Pos)
 
 		if vector.Magnitude(mVector) > config.ANT_CONFIG.VIEW_D {
@@ -130,7 +130,7 @@ func (a *Ant) ResolveMarker(counter int, foragingMarkers *[]*marker.Marker, retr
 	}
 }
 
-func (a *Ant) Move(counter int, foragingMarkers *[]*marker.Marker, retrievingMarkers *[]*marker.Marker) {
+func (a *Ant) Move(counter int, foragingMarkers []*marker.Marker, retrievingMarkers []*marker.Marker) {
 	switch a.CurrentState {
 	case Foraging:
 		a.adjustDirection(counter, retrievingMarkers)

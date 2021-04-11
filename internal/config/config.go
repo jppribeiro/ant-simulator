@@ -43,7 +43,7 @@ var WORLD_CONFIG = worldConfig{
 	FOOD_POS_Y: 400,
 	FOOD_SIZE:  60,
 
-	ANT_NUM:          150,
+	ANT_NUM:          200,
 	ANT_SOURCE_DECAY: 600,
 
 	MARKER_TTL: 300,

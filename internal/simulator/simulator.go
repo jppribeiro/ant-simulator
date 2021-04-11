@@ -72,21 +72,22 @@ func Run(wTitle string, wWidth int32, wHeight int32) int {
 		renderer.SetDrawColor(180, 155, 80, 255)
 
 		for _, a := range ants {
-			a.Move(counter, &foragingMarkers, &retrievingMarkers)
+			a.Move(counter, foragingMarkers, retrievingMarkers)
 
 			a.ResolveMarker(counter, &foragingMarkers, &retrievingMarkers)
 
 			evalWorldState(a)
 
-			renderer.DrawPoint(int32(a.Pos.X)-1, int32(a.Pos.Y))
-			renderer.DrawPoint(int32(a.Pos.X)+1, int32(a.Pos.Y))
-			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y)-1)
-			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y)+1)
-			renderer.DrawPoint(int32(a.Pos.X), int32(a.Pos.Y))
+			renderer.DrawRect(&sdl.Rect{
+				X: int32(a.Pos.X),
+				Y: int32(a.Pos.Y),
+				W: 2,
+				H: 2,
+			})
 		}
 
-		resolveMarkers(&foragingMarkers, renderer, rgb{50, 230, 255, 255})
-		resolveMarkers(&retrievingMarkers, renderer, rgb{255, 125, 80, 255})
+		resolveMarkers(&foragingMarkers, renderer, rgb{120, 255, 255, 255})
+		resolveMarkers(&retrievingMarkers, renderer, rgb{255, 190, 150, 255})
 
 		renderer.Present()
 		sdl.Delay(33)
